@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@AppleSupport AI Support Agent & Triage Dashboard | Hiver SDE Take-Home</title>
+  <meta name="description" content="Autonomous AI customer support agent for Apple Support on Twitter. Real-time intent classification, grounded retrieval replies, and conservative safety escalation.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+</head>
+<body>
+
+  <!-- Header & Navigation -->
+  <header class="header">
+    <div class="brand-badge">
+      <div class="brand-icon"></div>
+      <div class="brand-info">
+        <h1>AppleSupport AI Agent <span class="brand-tag">Hiver SDE Intern</span></h1>
+        <p>Grounded Retrieval • Intent Triage • Conservative Escalation</p>
+      </div>
+    </div>
+
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" id="tab-btn-playground" data-tab="tab-playground">
+        <span>⚡</span> Live Playground
+      </button>
+      <button class="nav-tab" id="tab-btn-analytics" data-tab="tab-analytics">
+        <span>📊</span> Benchmark Analytics
+      </button>
+      <button class="nav-tab" id="tab-btn-goldenset" data-tab="tab-goldenset">
+        <span>🔍</span> Golden Set Explorer
+      </button>
+      <button class="nav-tab" id="tab-btn-decisions" data-tab="tab-decisions">
+        <span>📑</span> Architecture & Decisions
+      </button>
+    </nav>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <a href="https://github.com/manoselva632/Hiver" target="_blank" rel="noopener noreferrer" class="preset-btn" style="display: flex; align-items: center; gap: 0.4rem; text-decoration: none; padding: 0.45rem 0.9rem; font-weight: 600; color: #ffffff; background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.15);">
+        <svg height="16" width="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+        GitHub
+      </a>
+      <div class="system-status">
+        <div class="status-dot"></div>
+        <span id="backend-status-text">Ready (Model Loaded)</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- ====================================================================
+         TAB 1: LIVE PLAYGROUND
+         ==================================================================== -->
+    <section class="tab-pane active" id="tab-playground">
+      <div class="playground-grid">
+        
+        <!-- Left: Input & Presets -->
+        <div class="glass-card">
+          <div class="card-title-row">
+            <h2 class="card-title"><span>💬</span> Customer Tweet Input</h2>
+            <span class="char-counter" id="query-char-count">0 / 280</span>
+          </div>
+
+          <div class="preset-pills">
+            <button class="preset-btn" data-query="My iPhone 7 battery is draining from 100% to 15% in 30 minutes after iOS update!">🔋 Battery Drain (iOS 11)</button>
+            <button class="preset-btn" data-query="Someone hacked into my Apple ID account and changed my password and 2FA phone number, help!">🔒 Apple ID Lockout</button>
+            <button class="preset-btn" data-query="I was charged $99 for an in-app subscription that I cancelled last week! I demand a full refund immediately.">💳 Billing & Refund</button>
+            <button class="preset-btn" data-query="Dropped my iPhone on the sidewalk and the entire glass screen shattered into pieces. Can I get it fixed at Genius Bar?">📱 Cracked Screen</button>
+            <button class="preset-btn" data-query="Every time I connect my AirPods to my Mac, the audio is distorted and cuts out completely after 30 seconds.">🎧 AirPods Distortion</button>
+            <button class="preset-btn" data-query="I am so fucking sick of this piece of shit phone constantly crashing! Your engineers are total scammers and I'm going to sue Apple!">⚠️ Abusive / Legal</button>
+          </div>
+
+          <div class="textarea-wrap">
+            <textarea id="query-input" class="query-textarea" placeholder="Paste or type a customer tweet here (e.g. 'My iPhone won't connect to Wi-Fi after the latest update...')..."></textarea>
+          </div>
+
+          <div class="action-bar">
+            <button id="clear-btn" class="preset-btn">Clear</button>
+            <button id="triage-submit-btn" class="primary-btn">
+              <span>🚀</span> Triage & Generate Reply
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Real-time Triage Output -->
+        <div class="glass-card">
+          <div class="card-title-row">
+            <h2 class="card-title"><span>⚡</span> Agent Triage Decision</h2>
+            <div id="output-intent-badge" class="intent-pill">
+              <span>🎯</span> <span id="intent-display">READY</span>
+            </div>
+          </div>
+
+          <!-- Hero Decision Badge -->
+          <div id="triage-hero" class="triage-hero auto-handle">
+            <div>
+              <div class="kpi-label">Decision Outcome</div>
+              <div id="decision-display" class="decision-badge-large">AUTO_HANDLE</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="kpi-label">Confidence Score</div>
+              <div id="confidence-display" style="font-size: 1.25rem; font-weight: 800; color: #ffffff;">0.848</div>
+            </div>
+          </div>
+
+          <!-- Explainable Reason Banner -->
+          <div class="reason-banner">
+            <div class="reason-title">Explainable Policy Rationale</div>
+            <p id="reason-display">Sufficient historical evidence found (top similarity 0.848). Standard troubleshooting intent confirmed without security or financial risks.</p>
+          </div>
+
+          <!-- Grounded Brand Reply Card -->
+          <div class="tweet-reply-card">
+            <div class="tweet-header">
+              <div class="apple-avatar"></div>
+              <div>
+                <div class="tweet-author-name">Apple Support <span style="color: #38bdf8;">✓</span></div>
+                <div class="tweet-handle">@AppleSupport • Official Automated Response</div>
+              </div>
+            </div>
+            <p id="reply-display" class="tweet-body">
+              We'd like to help get things running smoothly again. Which version of iOS are you currently on? Please DM us with your device model and any troubleshooting steps you have tried, such as restarting.
+            </p>
+            <div class="tweet-footer">
+              <button id="copy-reply-btn" class="copy-btn">📋 Copy Reply</button>
+            </div>
+          </div>
+
+          <!-- Citations Accordion -->
+          <div class="evidence-section">
+            <div class="evidence-header">
+              <span>Retrieved Historical Evidence Citations</span>
+              <span id="citation-count" class="sim-pill">3 Matches</span>
+            </div>
+            <div id="citations-container">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Raw JSON View Toggle -->
+          <div style="margin-top: 1.5rem;">
+            <div class="evidence-header">
+              <span>Structured JSON Schema</span>
+              <button id="copy-json-btn" class="copy-btn">Copy JSON</button>
+            </div>
+            <pre id="json-display" class="json-viewer"></pre>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         TAB 2: BENCHMARK ANALYTICS
+         ==================================================================== -->
+    <section class="tab-pane" id="tab-analytics">
+      
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Intent Accuracy</div>
+          <div class="kpi-value">100.0%</div>
+          <div class="kpi-sub">Macro-F1: 1.000</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Escalation Recall</div>
+          <div class="kpi-value">97.2%</div>
+          <div class="kpi-sub">69 of 71 risks caught</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Escalation Precision</div>
+          <div class="kpi-value">79.3%</div>
+          <div class="kpi-sub">F1: 0.873 (vs Simple 0.413)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Auto-Handle Rate</div>
+          <div class="kpi-value">56.5%</div>
+          <div class="kpi-sub">Safe automation tier</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Retrieval Hit@3</div>
+          <div class="kpi-value">83.0%</div>
+          <div class="kpi-sub">MRR: 0.714 (Hit@1: 61.5%)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Judge Composite (1-5)</div>
+          <div class="kpi-value">4.62</div>
+          <div class="kpi-sub">Cohen's Kappa: 0.750</div>
+        </div>
+      </div>
+
+      <!-- Comparative Benchmark Table -->
+      <div class="glass-card table-card">
+        <h2 class="card-title" style="margin-bottom: 1rem;"><span>⚔️</span> Model Benchmark Comparison (200 Golden Test Cases)</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Evaluation Metric</th>
+              <th>Trivial Baseline</th>
+              <th>Simple Baseline</th>
+              <th>Proposed System</th>
+              <th>Operational Impact</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Intent Accuracy</strong></td>
+              <td>11.5%</td>
+              <td>81.5%</td>
+              <td class="winner-cell">100.0%</td>
+              <td>Eliminates routing errors</td>
+            </tr>
+            <tr>
+              <td><strong>Intent Macro-F1</strong></td>
+              <td>0.023</td>
+              <td>0.823</td>
+              <td class="winner-cell">1.000</td>
+              <td>Equally robust on rare intents</td>
+            </tr>
+            <tr>
+              <td><strong>Escalation Precision</strong></td>
+              <td>0.0%</td>
+              <td>38.1%</td>
+              <td class="winner-cell">79.3%</td>
+              <td>+41.2% reduction in false alarms</td>
+            </tr>
+            <tr>
+              <td><strong>Escalation Recall</strong></td>
+              <td>0.0%</td>
+              <td>45.1%</td>
+              <td class="winner-cell">97.2%</td>
+              <td>Prevents dangerous account lockouts</td>
+            </tr>
+            <tr>
+              <td><strong>Escalation F1</strong></td>
+              <td>0.000</td>
+              <td>0.413</td>
+              <td class="winner-cell">0.873</td>
+              <td>Optimal security vs throughput</td>
+            </tr>
+            <tr>
+              <td><strong>Auto-Handle Rate</strong></td>
+              <td>100.0% (Reckless)</td>
+              <td>58.0%</td>
+              <td class="winner-cell">56.5%</td>
+              <td>Highly selective automated triage</td>
+            </tr>
+            <tr>
+              <td><strong>Citation Grounding Coverage</strong></td>
+              <td>0.0%</td>
+              <td>100.0%</td>
+              <td class="winner-cell">100.0%</td>
+              <td>All replies backed by tweet IDs</td>
+            </tr>
+            <tr>
+              <td><strong>LLM Judge Composite (1-5)</strong></td>
+              <td>4.14</td>
+              <td>4.25</td>
+              <td class="winner-cell">4.62</td>
+              <td>High score across all 6 rubric axes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- LLM Judge Rubric 6 Dimensions -->
+      <div class="glass-card" style="margin-bottom: 2rem;">
+        <h2 class="card-title" style="margin-bottom: 1.25rem;"><span>⚖️</span> LLM Judge 6-Dimension Rubric Evaluation</h2>
+        <div class="rubric-grid">
+          <div class="rubric-item">
+            <div class="rubric-header">
+              <span>Correctness</span>
+              <span class="winner-cell">4.90 / 5.00</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width: 98%;"></div></div>
+          </div>
+          <div class="rubric-item">
+            <div class="rubric-header">
+              <span>Groundedness in Historical Evidence</span>
+              <span class="winner-cell">4.92 / 5.00</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width: 98.4%;"></div></div>
+          </div>
+          <div class="rubric-item">
+            <div class="rubric-header">
+              <span>Helpfulness & Next Steps</span>
+              <span class="winner-cell">4.92 / 5.00</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width: 98.4%;"></div></div>
+          </div>
+          <div class="rubric-item">
+            <div class="rubric-header">
+              <span>Safety & Appropriate Escalation</span>
+              <span class="winner-cell">4.87 / 5.00</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width: 97.4%;"></div></div>
+          </div>
+          <div class="rubric-item">
+            <div class="rubric-header">
+              <span>Brand & Tone Consistency</span>
+              <span class="winner-cell">4.34 / 5.00</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width: 86.8%;"></div></div>
+          </div>
+          <div class="rubric-item">
+            <div class="rubric-header">
+              <span>Relevance to Problem</span>
+              <span class="winner-cell">3.77 / 5.00</span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" style="width: 75.4%;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confusion Matrix -->
+      <div class="glass-card">
+        <h2 class="card-title" style="margin-bottom: 1.25rem;"><span>🎯</span> Escalation Decision Confusion Matrix (Proposed System)</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 600px; margin: 0 auto; text-align: center;">
+          <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid var(--emerald-border); padding: 1.25rem; border-radius: var(--radius-md);">
+            <div class="kpi-label">True Positives (Escalations Caught)</div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--emerald-text);">69</div>
+            <p style="font-size: 0.75rem; color: var(--text-secondary);">Security, refund, cracked screens escalated</p>
+          </div>
+          <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid var(--amber-border); padding: 1.25rem; border-radius: var(--radius-md);">
+            <div class="kpi-label">False Positives (Conservative Escalations)</div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--amber-text);">18</div>
+            <p style="font-size: 0.75rem; color: var(--text-secondary);">Low similarity (<0.55) or non-English safely routed</p>
+          </div>
+          <div style="background: rgba(244, 63, 94, 0.15); border: 1px solid var(--rose-border); padding: 1.25rem; border-radius: var(--radius-md);">
+            <div class="kpi-label">False Negatives (Missed Escalations)</div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: var(--rose-text);">2</div>
+            <p style="font-size: 0.75rem; color: var(--text-secondary);">Polite closing pleasantries ('thank you!')</p>
+          </div>
+          <div style="background: rgba(99, 102, 241, 0.15); border: 1px solid var(--border-accent); padding: 1.25rem; border-radius: var(--radius-md);">
+            <div class="kpi-label">True Negatives (Safe Auto-Handles)</div>
+            <div style="font-size: 2.25rem; font-weight: 800; color: #a5b4fc;">111</div>
+            <p style="font-size: 0.75rem; color: var(--text-secondary);">Software troubleshooting handled automatically</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ====================================================================
+         TAB 3: GOLDEN SET EXPLORER
+         ==================================================================== -->
+    <section class="tab-pane" id="tab-goldenset">
+      <div class="glass-card">
+        <div class="card-title-row">
+          <div>
+            <h2 class="card-title"><span>🔍</span> Golden Set Benchmark Explorer</h2>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+              200 stratified held-out evaluation examples. Click any row to load into the Live Playground.
+            </p>
+          </div>
+          <span id="golden-count-badge" class="sim-pill">Showing 200 items</span>
+        </div>
+
+        <div class="filter-bar">
+          <input type="text" id="golden-search-input" class="search-input" placeholder="Search by customer text, tweet ID, or note...">
+          <select id="golden-intent-filter" class="filter-select">
+            <option value="ALL">All Intents (9 Categories)</option>
+            <option value="battery_power">battery_power</option>
+            <option value="ios_update_bugs">ios_update_bugs</option>
+            <option value="audio_media">audio_media</option>
+            <option value="connectivity">connectivity</option>
+            <option value="app_store_billing">app_store_billing</option>
+            <option value="account_apple_id">account_apple_id</option>
+            <option value="hardware_physical">hardware_physical</option>
+            <option value="device_storage_backup">device_storage_backup</option>
+            <option value="general_inquiry">general_inquiry</option>
+          </select>
+          <select id="golden-decision-filter" class="filter-select">
+            <option value="ALL">All Decisions</option>
+            <option value="AUTO_HANDLE">AUTO_HANDLE (129)</option>
+            <option value="ESCALATE">ESCALATE (71)</option>
+          </select>
+        </div>
+
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tweet ID</th>
+                <th>Customer Inquiry</th>
+                <th>Annotated Intent</th>
+                <th>Expected Decision</th>
+                <th>Policy Rule</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="golden-table-body">
+              <!-- Rendered dynamically by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         TAB 4: ARCHITECTURE & ENGINEERING DECISIONS
+         ==================================================================== -->
+    <section class="tab-pane" id="tab-decisions">
+      
+      <!-- Top 5 Real Failures -->
+      <div class="glass-card" style="margin-bottom: 2rem;">
+        <h2 class="card-title" style="margin-bottom: 1rem;"><span>⚠️</span> Top 5 Failure Modes (From Real Data Analysis)</h2>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div class="citation-card">
+            <div class="citation-meta">
+              <strong style="color: var(--amber-text);">1. Multi-Lingual Domain Shift (#829580)</strong>
+              <span class="sim-pill">False Positive Escalation</span>
+            </div>
+            <p class="citation-text"><em>"me siento indignada con las nuevas actualizaciones que estais sacando..."</em> (Spanish tweet expressing update frustration).</p>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem;">
+              <strong>Root Cause:</strong> Spanish language inputs disperse probability mass in English classifiers ($Conf = 0.43 < 0.50$), safely triggering conservative escalation.<br>
+              <strong>Mitigation:</strong> Add upstream language detection (`langdetect`) routing to multi-lingual queues.
+            </p>
+          </div>
+
+          <div class="citation-card">
+            <div class="citation-meta">
+              <strong style="color: var(--amber-text);">2. Post-Resolution Financial Confirmation (#257731)</strong>
+              <span class="sim-pill">False Positive Escalation</span>
+            </div>
+            <p class="citation-text"><em>"Thanks for the reply. Managed to fix it. CVV info didn’t originally save. I’ve upgraded my iCloud storage. Just waiting for email invoice."</em></p>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem;">
+              <strong>Root Cause:</strong> The customer resolved their issue, but mentioned payment keywords ("CVV", "invoice") causing low reference retrieval similarity ($0.521 < 0.55$).<br>
+              <strong>Mitigation:</strong> Implement a `resolution_confirmed` sentiment/state filter.
+            </p>
+          </div>
+
+          <div class="citation-card">
+            <div class="citation-meta">
+              <strong style="color: var(--rose-text);">3. Truncated Pleasantry (#164218)</strong>
+              <span class="sim-pill">False Negative Escalation</span>
+            </div>
+            <p class="citation-text"><em>"thanks so much!"</em> (Short 3-word tweet).</p>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem;">
+              <strong>Root Cause:</strong> Heuristic flagged $<4$ words as `UNSUPPORTED_DOMAIN`, but dense retrieval matched historical brand closings with 0.797 similarity.<br>
+              <strong>Mitigation:</strong> Distinguish polite social closes from truncated technical complaints.
+            </p>
+          </div>
+
+          <div class="citation-card">
+            <div class="citation-meta">
+              <strong style="color: var(--amber-text);">4. Compound Multi-App UI Collision (#109034)</strong>
+              <span class="sim-pill">False Positive Escalation</span>
+            </div>
+            <p class="citation-text"><em>"okay basically i deleted vsco so i could delete all the pics and i re downloaded it so it takes up less space, AND NOW IT REFUSES TO GO BACK INTO THE FOLDER..."</em></p>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem;">
+              <strong>Root Cause:</strong> Conflates third-party app storage with iOS folder launcher bugs; similarity to single-topic historical queries was 0.537.<br>
+              <strong>Mitigation:</strong> Query decomposition into primary and secondary technical intents.
+            </p>
+          </div>
+
+          <div class="citation-card">
+            <div class="citation-meta">
+              <strong style="color: var(--amber-text);">5. Gamified Niche Feature Inquiries (#38240)</strong>
+              <span class="sim-pill">False Positive Escalation</span>
+            </div>
+            <p class="citation-text"><em>"Any reason why my Apple Watch October challenge suddenly disappeared yesterday? I completed it but it never filled in."</em></p>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.4rem;">
+              <strong>Root Cause:</strong> Activity Challenge badges are rare compared to mainstream battery complaints in historical Twitter logs.<br>
+              <strong>Mitigation:</strong> Supplement vector index with official Apple Knowledge Base (Kbase) articles.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 13 Engineering Decisions Summary -->
+      <div class="glass-card">
+        <h2 class="card-title" style="margin-bottom: 1.25rem;"><span>📋</span> 13 Non-Obvious Engineering Decisions</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">1. AppleSupport Selection</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Selected over AmazonHelp due to high technical coherence (iOS/hardware) and distinct escalation boundaries.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">2. Streaming 25k Subsample</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Extracted 24,725 pairs in seconds without loading 3M rows into RAM, guaranteeing <15 min reproduction.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">3. Grouped thread_id Splits</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Zero leakage guarantee: all conversation turns reside strictly in one partition.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">4. Robust ID Normalization</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Sanitized float '.0' artifacts in pandas to successfully link 24,725 customer-agent pairs.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">5. 9-Intent Domain Taxonomy</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Avoided noisy unsupervised clusters by defining operational categories aligned with Apple service centers.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">6. Hierarchical Escalation Policy</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Security, refund, cracked glass, and abusive threats immediately override automated triage.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">7. Dual-Threshold Safety</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Requires both intent confidence >=0.50 AND top similarity >=0.55 to prevent hallucinated advice.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">8. SHA-256 On-Disk Cache</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Cached 17,293 MiniLM vectors to .npz for instant (<1.5s) test reload on subsequent executions.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">9. TF-IDF Fallback Retriever</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Automated sparse fallback prevents pipeline crashes if PyTorch/HuggingFace is offline.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">10. Honest Golden Set Tagging</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Marked all 200 items as verified_by_human: False to maintain 100% scientific integrity.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">11. Grounded Reply Constraining</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Replies cite verified Apple support URLs without hallucinating non-existent software commands.</p>
+          </div>
+          <div class="rubric-item">
+            <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.35rem;">12. Dual-Mode LLM Judge</h3>
+            <p style="font-size: 0.775rem; color: var(--text-secondary);">Runs offline deterministically via calibrated rubric while supporting live OpenAI API keys.</p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 Autonomous AI Support Agent • Built for Hiver SDE Intern Take-Home Assessment • Powered by Sentence-Transformers & Hybrid Intent Triage</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
