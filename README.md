@@ -4,7 +4,8 @@
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-brightgreen.svg)](https://www.python.org/downloads/release/python-3119/)
 [![Tests](https://img.shields.io/badge/pytest-20%20passed-success.svg)](https://github.com/manoselva632/Hiver)
 
-**Official Repository**: [https://github.com/manoselva632/Hiver](https://github.com/manoselva632/Hiver)
+**Official Repository**: [https://github.com/manoselva632/Hiver](https://github.com/manoselva632/Hiver)  
+**Interactive Web Dashboard**: [http://localhost:8000](http://localhost:8000) *(Run locally via `python scripts/run_web.py --port 8000`)*
 
 An end-to-end, production-grade AI Customer Support Agent built for the **Hiver SDE Intern Take-Home Assessment**. The agent classifies incoming customer inquiries across 9 discovered domain intents, retrieves historically grounded resolutions from a verified reference knowledge base, drafts brand-consistent troubleshooting replies, and enforces conservative, explainable escalation policies (`AUTO_HANDLE` vs `ESCALATE`).
 
@@ -133,7 +134,13 @@ python scripts/run_demo.py --data_dir data
 python scripts/run_demo.py --data_dir data --query "My iPhone 7 battery is dying in 20 minutes after iOS update"
 ```
 
-### Step 5: Execute Automated Test Suite (~3 seconds)
+### Step 5: Launch the Interactive Web Dashboard (~2 seconds)
+```bash
+python scripts/run_web.py --port 8000
+```
+*Starts the multi-threaded triage web server. Open [http://localhost:8000](http://localhost:8000) in your browser to test live customer query triage, view historical retrieval citations, and explore benchmark metrics.*
+
+### Step 6: Execute Automated Test Suite (~3 seconds)
 ```bash
 pytest -v tests/
 ```
